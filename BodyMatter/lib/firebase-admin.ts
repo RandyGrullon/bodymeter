@@ -13,15 +13,91 @@ let app: App | undefined;
 /** Rellena al parsear el JSON; sirve de diagnóstico sin leer `options` de App. */
 let lastServiceAccountProjectId: string | null = null;
 
-const MISSING_JSON_MSG =
-  "Define FIREBASE_SERVICE_ACCOUNT_JSON (texto) o GOOGLE_APPLICATION_CREDENTIALS (ruta al .json) en .env. " +
-  "Firebase: Project settings > Service accounts > Generar nueva clave. " +
-  "El project_id del JSON debe coincidir con NEXT_PUBLIC_FIREBASE_PROJECT_ID.";
+/** Mensaje estable para detectar en API y mostrar ayuda (incl. Vercel). */
+export const FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG =
+  "Falta credencial de servicio de Firebase Admin. " +
+  "En Firebase: Project settings → Service accounts → Generate new private key. " +
+  "Local (.env): FIREBASE_SERVICE_ACCOUNT_JSON con el JSON en una línea, o FIREBASE_SERVICE_ACCOUNT_JSON_BASE64. " +
+  "Vercel: Project → Settings → Environment Variables; recomendado BASE64 del JSON completo. " +
+  "Debe ser el mismo proyecto que NEXT_PUBLIC_FIREBASE_PROJECT_ID.";
+
+function normalizePrivateKeyInServiceAccount(
+  parsed: Record<string, unknown>
+): Record<string, unknown> {
+  const pk = parsed.private_key;
+  if (typeof pk !== "string") return parsed;
+  return {
+    ...parsed,
+    private_key: pk.replace(/\\n/g, "\n"),
+  };
+}
+
+function parseServiceAccountObject(raw: string, label: string): {
+  parsed: Record<string, unknown>;
+  projectId: string;
+} {
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(raw) as Record<string, unknown>;
+  } catch {
+    throw new Error(
+      `${label}: no es un JSON válido. En Vercel suele funcionar mejor FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 (archivo .json codificado en Base64).`
+    );
+  }
+  const projectIdFromJson =
+    typeof parsed.project_id === "string" && parsed.project_id
+      ? parsed.project_id
+      : undefined;
+  if (!projectIdFromJson) {
+    throw new Error(
+      `${label}: el JSON no contiene project_id. Vuelve a descargar la clave en Firebase (Service account).`
+    );
+  }
+  return {
+    parsed: normalizePrivateKeyInServiceAccount(parsed),
+    projectId: projectIdFromJson,
+  };
+}
+
+function tryCredentialFromEnvVars(): {
+  parsed: Record<string, unknown>;
+  projectId: string;
+} | null {
+  const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
+  if (rawJson) {
+    return parseServiceAccountObject(rawJson, "FIREBASE_SERVICE_ACCOUNT_JSON");
+  }
+
+  const b64 = process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64?.trim();
+  if (b64) {
+    let decoded: string;
+    try {
+      decoded = Buffer.from(b64, "base64").toString("utf8");
+    } catch {
+      throw new Error(
+        "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: no se pudo decodificar Base64."
+      );
+    }
+    const trimmed = decoded.trim();
+    if (!trimmed) {
+      throw new Error(
+        "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64: el contenido decodificado está vacío."
+      );
+    }
+    return parseServiceAccountObject(
+      trimmed,
+      "FIREBASE_SERVICE_ACCOUNT_JSON_BASE64"
+    );
+  }
+
+  return null;
+}
 
 /**
  * Inicializa Firebase Admin (solo servidor). Prioridad:
- * 1. `FIREBASE_SERVICE_ACCOUNT_JSON` (mismo proyecto que el cliente web)
- * 2. `GOOGLE_APPLICATION_CREDENTIALS` (ruta a un .json: se lee con `cert`, no ADC genérico)
+ * 1. `FIREBASE_SERVICE_ACCOUNT_JSON` (texto JSON, una línea en local/Vercel)
+ * 2. `FIREBASE_SERVICE_ACCOUNT_JSON_BASE64` (mismo JSON en Base64; recomendado en Vercel)
+ * 3. `GOOGLE_APPLICATION_CREDENTIALS` (ruta a un .json; típico en local)
  */
 export function getAdminApp(): App {
   if (app) return app;
@@ -32,29 +108,13 @@ export function getAdminApp(): App {
     return app;
   }
 
-  const rawJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim();
-  if (rawJson) {
-    let parsed: Record<string, unknown>;
-    try {
-      parsed = JSON.parse(rawJson) as Record<string, unknown>;
-    } catch {
-      throw new Error(
-        "FIREBASE_SERVICE_ACCOUNT_JSON no es un JSON válido. Comprueba que sea una sola línea o JSON escapado correctamente."
-      );
-    }
-    const projectIdFromJson =
-      typeof parsed.project_id === "string" && parsed.project_id
-        ? parsed.project_id
-        : undefined;
-    if (!projectIdFromJson) {
-      throw new Error(
-        "El JSON de servicio no contiene project_id. Descarga otra vez la clave en Firebase (Service account)."
-      );
-    }
-    lastServiceAccountProjectId = projectIdFromJson;
+  const fromEnv = tryCredentialFromEnvVars();
+  if (fromEnv) {
+    const { parsed, projectId } = fromEnv;
+    lastServiceAccountProjectId = projectId;
     app = initializeApp({
       credential: cert(parsed as Parameters<typeof cert>[0]),
-      projectId: projectIdFromJson,
+      projectId,
     });
     return app;
   }
@@ -63,9 +123,10 @@ export function getAdminApp(): App {
   if (gac) {
     try {
       const pathToKey = isAbsolute(gac) ? gac : resolve(process.cwd(), gac);
-      const parsed = JSON.parse(
+      const parsedRaw = JSON.parse(
         readFileSync(pathToKey, "utf8")
       ) as Record<string, unknown>;
+      const parsed = normalizePrivateKeyInServiceAccount(parsedRaw);
       const projectIdFromFile =
         typeof parsed.project_id === "string" && parsed.project_id
           ? parsed.project_id
@@ -93,7 +154,7 @@ export function getAdminApp(): App {
     }
   }
 
-  throw new Error(MISSING_JSON_MSG);
+  throw new Error(FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG);
 }
 
 /**
@@ -115,6 +176,7 @@ export function getAdminAppProjectIdForDiagnostics(): string | null {
 export function isFirebaseServiceAccountJsonConfigured(): boolean {
   return Boolean(
     process.env.FIREBASE_SERVICE_ACCOUNT_JSON?.trim() ||
+      process.env.FIREBASE_SERVICE_ACCOUNT_JSON_BASE64?.trim() ||
       process.env.GOOGLE_APPLICATION_CREDENTIALS?.trim()
   );
 }

@@ -80,7 +80,7 @@ export async function requireUidFromRequest(req: Request): Promise<string> {
     const fromEnv = process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim();
     const hasServiceJson = isFirebaseServiceAccountJsonConfigured();
     const hint = !hasServiceJson
-      ? " (dev) Falta FIREBASE_SERVICE_ACCOUNT_JSON en .env."
+      ? " (dev) Falta FIREBASE_SERVICE_ACCOUNT_JSON o FIREBASE_SERVICE_ACCOUNT_JSON_BASE64 en .env."
       : fromEnv && adminP && fromEnv !== adminP
         ? ` (dev) project_id servicio=${adminP} ≠ NEXT_PUBLIC=${fromEnv}.`
         : ` (dev) Admin project_id=${adminP ?? "?"}.`;

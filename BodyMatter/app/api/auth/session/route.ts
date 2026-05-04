@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
-import { getAdminAuth } from "@/lib/firebase-admin";
+import {
+  FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG,
+  getAdminAuth,
+} from "@/lib/firebase-admin";
 import { logger } from "@/lib/logger";
 import { EATY_SERVER_SESSION_COOKIE } from "@/lib/server-auth-session-constants";
 
@@ -60,20 +63,22 @@ export async function POST(req: Request) {
     const message = e instanceof Error ? e.message : String(e);
     if (
       e instanceof Error &&
-      (message.includes("FIREBASE_SERVICE_ACCOUNT_JSON") ||
+      (message === FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG ||
+        message.includes("FIREBASE_SERVICE_ACCOUNT_JSON") ||
+        message.includes("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64") ||
+        message.includes("Falta credencial de servicio") ||
         message.includes("cuenta de servicio") ||
         message.includes("project_id"))
     ) {
       logger.error("createSessionCookie (Admin no configurado)", message);
-      return NextResponse.json(
-        {
-          error:
-            message.startsWith("FIREBASE_") ?
-              message
-            : "Configura FIREBASE_SERVICE_ACCOUNT_JSON en .env.",
-        },
-        { status: 503 }
-      );
+      const body =
+        message === FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG ?
+          { error: FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG }
+        : message.startsWith("FIREBASE_SERVICE_ACCOUNT_JSON") ||
+            message.startsWith("FIREBASE_SERVICE_ACCOUNT_JSON_BASE64") ?
+          { error: message }
+        : { error: FIREBASE_ADMIN_MISSING_CREDENTIALS_MSG };
+      return NextResponse.json(body, { status: 503 });
     }
     logger.error("createSessionCookie", message);
     return NextResponse.json(
