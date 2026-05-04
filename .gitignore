@@ -1,0 +1,28 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Env (no secretos en el repo)
+.env
+.env.local
+.env.*.local
+
+# Debug / OS
+*.log
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+
+# Firebase keys locales (nunca subir)
+**/firebase-auth.json
+**/*firebase-adminsdk*.json
+
+# TypeScript
+*.tsbuildinfo
