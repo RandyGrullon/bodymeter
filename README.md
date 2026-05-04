@@ -1,40 +1,36 @@
-# Body Matter
+# Gym + Eaty (workspace local)
 
-PWA Next.js (App Router) para rutinas, entreno con temporizador, historial, calendario y medidas corporales.
+Esta carpeta agrupa **dos proyectos independientes**, cada uno en su propia carpeta y con su propio repositorio en GitHub.
 
-**Eaty** (nutrición) es un [repositorio y despliegue aparte](https://github.com/RandyGrullon/Eaty). Ambas apps pueden usar el **mismo proyecto Firebase** (Auth, Firestore, Storage) para una sola cuenta de usuario.
+| Carpeta | Proyecto | Repo |
+|--------|----------|------|
+| **`Eaty/`** | Nutrición (Next.js) | [github.com/RandyGrullon/Eaty](https://github.com/RandyGrullon/Eaty) |
+| **`BodyMatter/`** | Entrenos y medidas (Next.js) | [github.com/RandyGrullon/bodymeter](https://github.com/RandyGrullon/bodymeter) |
 
-## Requisitos
-
-- Node 20+
-- [pnpm](https://pnpm.io/)
-
-## Desarrollo local
+## Desarrollo
 
 ```bash
+# Eaty (suele usar el puerto 3000)
+cd Eaty
 pnpm install
-cp .env.example .env.local   # mismas claves Firebase que en el proyecto Eaty
-pnpm dev                      # http://localhost:3001
+cp .env.example .env.local   # si aplica
+pnpm dev
+
+# Body Matter (puerto 3001 por defecto en package.json)
+cd BodyMatter
+pnpm install
+cp .env.example .env.local
+pnpm dev
 ```
 
-Para desarrollar Eaty y Body Matter a la vez, clona cada repo en **carpetas distintas** y ejecuta `pnpm dev` en cada una (por ejemplo puertos 3000 y 3001). No hace falta monorepo ni workspace compartido.
+Ambas pueden usar el **mismo proyecto Firebase**; revisa `BodyMatter/docs/firebase-cross-app.md`.
 
-## Vercel y dominios
+## Repo Git de esta carpeta
 
-1. Crea **dos proyectos** en Vercel: uno conectado al repo de Eaty y otro al de Body Matter.
-2. Asigna un **dominio** distinto a cada proyecto (por ejemplo `eaty.tudominio.com` y `gym.tudominio.com`).
-3. En **Body Matter**, en Variables de entorno, define `NEXT_PUBLIC_EATY_ORIGIN` con la URL pública de Eaty (sin barra final).
-4. En **Eaty**, define `NEXT_PUBLIC_BODYMATTER_ORIGIN` con la URL pública de Body Matter.
-5. En Firebase Console → Authentication → Settings → **Authorized domains**, añade ambos dominios de producción además de `localhost`.
+El remoto `origin` de **esta** raíz corresponde a **bodymeter** (Body Matter). La carpeta `Eaty/` está en `.gitignore` para no mezclar el historial del otro repo: en Eaty trabaja con `git` dentro de `Eaty/`.
 
-Opcional: para compartir la cookie de sesión entre subdominios del mismo dominio raíz, usa el mismo valor de `SERVER_SESSION_COOKIE_DOMAIN` en ambas apps (ver `docs/firebase-cross-app.md`).
+## Vercel
 
-## Documentación
+En el proyecto de Vercel de **Body Matter**, define el **Root Directory** como `BodyMatter` si el repositorio conectado es el monorepo que incluye esta estructura. Si el remoto de GitHub solo contiene el contenido de `BodyMatter/` en la raíz del repo, no hace falta.
 
-- [Firebase, sesión y enlaces con Eaty](docs/firebase-cross-app.md)
-
-## Scripts
-
-- `pnpm build` — producción
-- `pnpm dev` — desarrollo (puerto 3001)
-- `pnpm test` — Vitest
+El proyecto **Eaty** en Vercel usa la raíz del repo Eaty con normalidad.

@@ -15,7 +15,7 @@ En Firebase Console → Authentication → Settings → **Authorized domains**, 
 - **Eaty**: `NEXT_PUBLIC_BODYMATTER_ORIGIN` = URL pública de Body Matter.
 - **Body Matter**: `NEXT_PUBLIC_EATY_ORIGIN` = URL pública de Eaty.
 
-En local, por defecto: Eaty `http://localhost:3000`, Body Matter `http://localhost:3001` (`pnpm dev` en cada clon del repo).
+En local, por defecto: Eaty `http://localhost:3000`, Body Matter `http://localhost:3001`. Ejecuta `pnpm dev` dentro de `Eaty/` y dentro de `BodyMatter/` si ambos repos viven en el mismo workspace.
 
 Las claves `NEXT_PUBLIC_FIREBASE_*` y la cuenta de servicio (donde aplique) deben corresponder al **mismo** proyecto Firebase en ambas apps si quieres datos unificados.
 
